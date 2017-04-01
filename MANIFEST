@@ -2,3 +2,4 @@
 setup.cfg
 setup.py
 Swinger/__init__.py
+Swinger/text2json.py
