@@ -24,37 +24,58 @@ class Swinger(object):
         'BernoulliNB':BernoulliNB()
     }
     
-    def __init__(self, pos, neg, BestFeatureVec):
-        self.pos_review = json.load(open(pos, 'r'))
-        self.neg_review = json.load(open(neg, 'r'))
-        try:
-            print('load mainFeatures')
-            self.mainFeatures = pickle.load(open(os.path.join(self.BASEDIR, 'mainFeatures.pickle'), 'rb'))
-            print('load mainFeatures success!!')
-        except Exception as e:
-            # build training data
-            print('load mainFeatures failed!!')
-            print('start creating mainFeatures...')
-            self.mainFeatures = self.create_word_features(bigram=True, pos_data=self.pos_review, neg_data=self.neg_review) #使用词和双词搭配作为特征
-            pickle.dump(self.mainFeatures, open('mainFeatures.pickle', 'wb'))
-        self.BestFeatureVec = int(BestFeatureVec)
+    def __init__(self):
         self.train = []
         self.test = ''
         self.classifier = ''
 
+    def load(self, model, useDefault=True, pos=None, neg=None, BestFeatureVec=2000):
+        self.BestFeatureVec = int(BestFeatureVec)
+
+        if useDefault:
+            print('load default mainFeatures')
+            self.mainFeatures = pickle.load(open(os.path.join(self.BASEDIR, 'mainFeatures.pickle'), 'rb'))
+            print('load default mainFeatures success!!')
+
+            self.classifier = pickle.load(open(os.path.join(self.BASEDIR, '{}-{}.pickle'.format(model, self.BestFeatureVec)), 'rb'))
+            print("load model from {}".format(model))
+        else:
+            try:
+                print('load local mainFeatures')
+                self.mainFeatures = pickle.load(open('mainFeatures.pickle'), 'rb')
+                print('load local mainFeatures success!!')
+
+                self.classifier = pickle.load(open('{}-{}.pickle'.format(model, self.BestFeatureVec)), 'rb')
+                print("load model from {}".format(model))
+            except Exception as e:
+                print('load mainFeatures failed!!')
+                print('start creating mainFeatures...')
+                self.pos_review = json.load(open(pos, 'r'))
+                self.neg_review = json.load(open(neg, 'r'))
+                self.mainFeatures = self.create_word_features(bigram=True, pos_data=self.pos_review, neg_data=self.neg_review) #使用词和双词搭配作为特征
+                pickle.dump(self.mainFeatures, open('mainFeatures.pickle', 'wb'))
+
+                print('start building {} model!!!'.format(model))
+                posFeatures = self.emotion_features(self.best_word_features, self.pos_review, 'pos')
+                negFeatures = self.emotion_features(self.best_word_features, self.neg_review, 'neg')
+                self.train = posFeatures + negFeatures
+                self.classifier = SklearnClassifier(self.classifier_table[model]) #在nltk 中使用scikit-learn 的接口
+                self.classifier.train(self.train) #训练分类器
+                pickle.dump(self.classifier, open('{}-{}.pickle'.format(model, self.BestFeatureVec),'wb'))
+
     def buildTestData(self, pos_test, neg_test):
         pos_test = json.load(open(pos_test, 'r'))
         neg_test = json.load(open(neg_test, 'r'))
-        posFeatures = self.pos_features(self.best_word_features, pos_test, self.mainFeatures)
-        negFeatures = self.neg_features(self.best_word_features, neg_test, self.mainFeatures)
+        posFeatures = self.emotion_features(self.best_word_features, pos_test, 'pos')
+        negFeatures = self.emotion_features(self.best_word_features, neg_test, 'neg')
         return posFeatures + negFeatures
 
-    def best_word_features(self, word_list, word_features):
-        def find_best_words(word_features, number):
-            best_vals = sorted(word_features.items(), key=lambda x: -x[1])[:number] #把词按信息量倒序排序。number是特征的维度，是可以不断调整直至最优的
+    def best_word_features(self, word_list):
+        def find_best_words(number):
+            best_vals = sorted(self.mainFeatures.items(), key=lambda x: -x[1])[:number] #把词按信息量倒序排序。number是特征的维度，是可以不断调整直至最优的
             return set(w for w, s in best_vals) # set comprehension
 
-        best_words = find_best_words(word_features, self.BestFeatureVec) #特征维度1500
+        best_words = find_best_words(self.BestFeatureVec) #特征维度1500
         return {word:True for word in word_list if word in best_words}
 
     @staticmethod
@@ -111,40 +132,23 @@ class Swinger(object):
         print('neg recall:',recall(refsets['neg'], testsets['neg']))
         print('neg F-measure:',f_measure(refsets['neg'], testsets['neg']))
 
-
-    def load(self, name):
-        try:
-            self.classifier = pickle.load(open(os.path.join(self.BASEDIR, '{}-{}.pickle'.format(name, self.BestFeatureVec)), 'rb'))
-            print("load model from {}".format(name))
-        except Exception as e:
-            print('start building {} model!!!'.format(name))
-            posFeatures = self.pos_features(self.best_word_features, self.pos_review, self.mainFeatures)
-            negFeatures = self.neg_features(self.best_word_features, self.neg_review, self.mainFeatures)
-            self.train = posFeatures + negFeatures
-            self.classifier = SklearnClassifier(self.classifier_table[name]) #在nltk 中使用scikit-learn 的接口
-            self.classifier.train(self.train) #训练分类器
-            pickle.dump(self.classifier, open('{}-{}.pickle'.format(name, self.BestFeatureVec),'wb'))
-
-    def pos_features(self, feature_extraction_method, data, word_features):
-        return list(map(lambda x:[feature_extraction_method(x, word_features),'pos'], data)) #为积极文本赋予"pos"
-
-    def neg_features(self, feature_extraction_method, data, word_features):
-        return list(map(lambda x:[feature_extraction_method(x, word_features),'neg'], data)) #为消极文本赋予"neg"
+    def emotion_features(self, feature_extraction_method, data, emo):
+        return list(map(lambda x:[feature_extraction_method(x), emo], data)) #为积极文本赋予"pos"
 
     def swing(self, word_list):
         word_list = filter(lambda x: x not in self.stopwords, jieba.cut(word_list))
-        sentence = self.best_word_features(word_list, self.mainFeatures)
+        sentence = self.best_word_features(word_list)
         return self.classifier.classify(sentence)
 
 if __name__ == '__main__':
-    s = Swinger(pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=sys.argv[5])
+    s = Swinger()
     s.load('NuSVC')
-    s.score(pos_test=sys.argv[3], neg_test=sys.argv[4])
+    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])
     s.load('SVC')
-    s.score(pos_test=sys.argv[3], neg_test=sys.argv[4])
+    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])
     s.load('LinearSVC')
-    s.score(pos_test=sys.argv[3], neg_test=sys.argv[4])
+    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])
     s.load('MultinomialNB')
-    s.score(pos_test=sys.argv[3], neg_test=sys.argv[4])
+    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])
     s.load('BernoulliNB')
-    s.score(pos_test=sys.argv[3], neg_test=sys.argv[4])
+    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])

@@ -1,6 +1,7 @@
 # Swinger
 
-一個自製的判斷中文情緒的函式庫，因為算出來的機率會在0~1之間搖擺，故命名搖擺者
+一個自製的判斷中文情緒的函式庫，因為算出來的機率會在0~1之間搖擺，故命名搖擺者  
+可透過`pip`安裝 內含已經訓練好的模型
 
 ## Getting Started
 
@@ -47,8 +48,8 @@
   2. 訓練出指定分類器的模型：
   ```
   from Swinger import Swinger
-  s = Swinger(pos=正面情緒訓練資料, neg=負面情緒訓練資料, BestFeatureVec=選取的特徵數)
-  s.load('NuSVC') # 以NuSVC建立model
+  s = Swinger()
+  s.load('NuSVC', useDefault=False, pos=正面情緒訓練資料, neg=負面情緒訓練資料, BestFeatureVec=選取的特徵數) # 以NuSVC建立model
   s.score(pos_test=正面測試資料, neg_test=負面測試資料) #
   ```
 
@@ -57,8 +58,12 @@
   2. 執行下列程式碼
   ```
   from Swinger import Swinger
-  s = Swinger(pos=POS的訓練資料, neg=NEG的訓練資料)
-  s.load('NuSVC') # 可以是任意的分類器名稱
+  s = Swinger()
+
+  # 讀取方式2選1
+  s.load('NuSVC') # 讀取預設模型
+  s.load('NuSVC', useDefault=False, BestFeatureVec=2000) # 讀取自行建立的模型
+
   s.swing(要測試的字串)
   ```
 
