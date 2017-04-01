@@ -11,11 +11,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from nltk.metrics.scores import (accuracy, precision, recall, f_measure, log_likelihood, approxrand)
 
-BASRDIR = os.path.dirname(__file__)
 
 class Swinger(object):
     """docstring for Swinger"""
-    stopwords = json.load(open(os.path.join(BASRDIR, 'stopwords.json'), 'r'))
+    BASEDIR = os.path.dirname(__file__)
+    stopwords = json.load(open(os.path.join(BASEDIR, 'stopwords.json'), 'r'))
     classifier_table = {
         'SVC':SVC(probability=False),
         'LinearSVC':LinearSVC(),
@@ -29,7 +29,7 @@ class Swinger(object):
         self.neg_review = json.load(open(neg, 'r'))
         try:
             print('load mainFeatures')
-            self.mainFeatures = pickle.load(open('mainFeatures.pickle', 'rb'))
+            self.mainFeatures = pickle.load(open(os.path.join(self.BASEDIR, 'mainFeatures.pickle'), 'rb'))
             print('load mainFeatures success!!')
         except Exception as e:
             # build training data
@@ -114,14 +114,14 @@ class Swinger(object):
 
     def load(self, name):
         try:
-            self.classifier = pickle.load(open(os.path.join(BASEDIR, '{}-{}.pickle'.format(name, self.BestFeatureVec)), 'rb'))
+            self.classifier = pickle.load(open(os.path.join(self.BASEDIR, '{}-{}.pickle'.format(name, self.BestFeatureVec)), 'rb'))
             print("load model from {}".format(name))
         except Exception as e:
             print('start building {} model!!!'.format(name))
             posFeatures = self.pos_features(self.best_word_features, self.pos_review, self.mainFeatures)
             negFeatures = self.neg_features(self.best_word_features, self.neg_review, self.mainFeatures)
             self.train = posFeatures + negFeatures
-            self.classifier = SklearnClassifier(Swinger.classifier_table[name]) #在nltk 中使用scikit-learn 的接口
+            self.classifier = SklearnClassifier(self.classifier_table[name]) #在nltk 中使用scikit-learn 的接口
             self.classifier.train(self.train) #训练分类器
             pickle.dump(self.classifier, open('{}-{}.pickle'.format(name, self.BestFeatureVec),'wb'))
 
@@ -132,7 +132,7 @@ class Swinger(object):
         return list(map(lambda x:[feature_extraction_method(x, word_features),'neg'], data)) #为消极文本赋予"neg"
 
     def swing(self, word_list):
-        word_list = filter(lambda x: x not in stopwords, jieba.cut(word_list))
+        word_list = filter(lambda x: x not in self.stopwords, jieba.cut(word_list))
         sentence = self.best_word_features(word_list, self.mainFeatures)
         return self.classifier.classify(sentence)
 

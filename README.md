@@ -38,18 +38,19 @@
 #### Run
 
 1. 訓練資料來源：使用我們自製的 `公開訓練資料` -> [Open-Sentiment-Training-Data](https://github.com/UDICatNCHU/Open-Sentiment-Training-Data)
-  * 按照 `Open-Sentiment-Training-Data` 的README執行  
+  1. 按照 `Open-Sentiment-Training-Data` 的README執行  
   `text2json.py` 會產生出斷好詞的json檔  
   此格式即為`Swinger`的input data。
-2. 訓練模型：`python __init__.py posTrain negTrain posTest negTest`
+
+2. 訓練模型：
   1. 先準備好訓練資料及測試資料
-  2. 訓練出NuSVC的模型：
-    ```
-    from Swinger import Swinger
-    s = Swinger(pos=正面情緒訓練資料, neg=負面情緒訓練資料, BestFeatureVec=選取的特徵數)
-    s.load('NuSVC') # 以NuSVC建立model
-    s.score(pos_test=正面測試資料, neg_test=負面測試資料) #
-    ```
+  2. 訓練出指定分類器的模型：
+  ```
+  from Swinger import Swinger
+  s = Swinger(pos=正面情緒訓練資料, neg=負面情緒訓練資料, BestFeatureVec=選取的特徵數)
+  s.load('NuSVC') # 以NuSVC建立model
+  s.score(pos_test=正面測試資料, neg_test=負面測試資料) #
+  ```
 
 3. 測試效果：  
   1. 先準備好要測試的文集
