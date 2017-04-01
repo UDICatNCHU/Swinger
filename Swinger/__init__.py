@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import nltk, json, pickle, sys, itertools,collections, jieba
+import nltk, json, pickle, sys, itertools,collections, jieba, os
 from random import shuffle
 from nltk.collocations import BigramCollocationFinder
 from nltk.metrics import BigramAssocMeasures
@@ -11,9 +11,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from nltk.metrics.scores import (accuracy, precision, recall, f_measure, log_likelihood, approxrand)
 
+BASRDIR = os.path.dirname(__file__)
+
 class Swinger(object):
     """docstring for Swinger"""
-    stopwords = json.load(open('stopwords.json', 'r'))
+    stopwords = json.load(open(os.path.join(BASRDIR, 'stopwords.json'), 'r'))
     classifier_table = {
         'SVC':SVC(probability=False),
         'LinearSVC':LinearSVC(),
@@ -112,7 +114,7 @@ class Swinger(object):
 
     def load(self, name):
         try:
-            self.classifier = pickle.load(open('{}-{}.pickle'.format(name, self.BestFeatureVec), 'rb'))
+            self.classifier = pickle.load(open(os.path.join(BASEDIR, '{}-{}.pickle'.format(name, self.BestFeatureVec)), 'rb'))
             print("load model from {}".format(name))
         except Exception as e:
             print('start building {} model!!!'.format(name))
