@@ -26,73 +26,91 @@ class Swinger(object):
     
     def __init__(self):
         self.train = []
-        self.test = ''
+        self.test = []
         self.classifier = ''
 
     def load(self, model, useDefault=True, pos=None, neg=None, BestFeatureVec=2000):
-        self.BestFeatureVec = int(BestFeatureVec)
+        BestFeatureVec = int(BestFeatureVec)
 
         if useDefault:
-            print('load default mainFeatures')
-            self.mainFeatures = pickle.load(open(os.path.join(self.BASEDIR, 'mainFeatures.pickle'), 'rb'))
-            print('load default mainFeatures success!!')
+            print('load default bestMainFeatures')
+            self.bestMainFeatures = pickle.load(open(os.path.join(self.BASEDIR, 'bestMainFeatures.pickle.{}'.format(BestFeatureVec)), 'rb'))
+            print('load default bestMainFeatures success!!')
 
-            self.classifier = pickle.load(open(os.path.join(self.BASEDIR, '{}-{}.pickle'.format(model, self.BestFeatureVec)), 'rb'))
+            self.classifier = pickle.load(open(os.path.join(self.BASEDIR, '{}.pickle.{}'.format(model, BestFeatureVec)), 'rb'))
             print("load model from {}".format(model))
         else:
             try:
-                print('load local mainFeatures')
-                self.mainFeatures = pickle.load(open('mainFeatures.pickle'), 'rb')
-                print('load local mainFeatures success!!')
+                print('load local bestMainFeatures')
+                self.bestMainFeatures = pickle.load(open('bestMainFeatures.pickle.{}'.format(BestFeatureVec), 'rb'))
+                print('load local bestMainFeatures success!!')
 
-                self.classifier = pickle.load(open('{}-{}.pickle'.format(model, self.BestFeatureVec)), 'rb')
+                self.classifier = pickle.load(open('{}.pickle.{}'.format(model, BestFeatureVec), 'rb'))
                 print("load model from {}".format(model))
             except Exception as e:
-                print('load mainFeatures failed!!')
-                print('start creating mainFeatures...')
-                self.pos_review = json.load(open(pos, 'r'))
-                self.neg_review = json.load(open(neg, 'r'))
-                self.mainFeatures = self.create_word_features(bigram=True, pos_data=self.pos_review, neg_data=self.neg_review) #ä½¿ç”¨è¯å’ŒåŒè¯æ­é…ä½œä¸ºç‰¹å¾
-                pickle.dump(self.mainFeatures, open('mainFeatures.pickle', 'wb'))
+                # build best features.
+                print('load bestMainFeatures failed!!\nstart creating bestMainFeatures ...')
 
+                self.pos_origin = json.load(open(pos, 'r'))
+                self.neg_origin = json.load(open(neg, 'r'))
+                shuffle(self.pos_origin)
+                shuffle(self.neg_origin)
+                poslen = len(self.pos_origin)
+                neglen = len(self.neg_origin)
+
+                # build train and test data.
+                self.pos_review = self.pos_origin[:int(poslen*0.9)]
+                self.pos_test = self.pos_origin[int(poslen*0.9):]
+                self.neg_review = self.neg_origin[:int(neglen*0.9)]
+                self.neg_test = self.neg_origin[int(neglen*0.9):]
+
+                MainPosFeatures, MainNegFeatures = self.create_Mainfeatures(bigram=True, pos_data=self.pos_review, neg_data=self.neg_review) #Ê¹ÓÃ´ÊºÍË«´Ê´îÅä×÷ÎªÌØÕ÷
+                def find_best_words(number):
+                    MainPosFeatures.update(MainNegFeatures)
+                    best = sorted(MainPosFeatures.items(), key=lambda x: -x[1])[:number] #°Ñ´Ê°´ĞÅÏ¢Á¿µ¹ĞòÅÅĞò¡£numberÊÇÌØÕ÷µÄÎ¬¶È£¬ÊÇ¿ÉÒÔ²»¶Ïµ÷ÕûÖ±ÖÁ×îÓÅµÄ
+                    return set(w for w, s in best)
+
+                self.bestMainFeatures = find_best_words(BestFeatureVec) #ÌØÕ÷Î¬¶È1500
+                pickle.dump(self.bestMainFeatures, open('bestMainFeatures.pickle.{}'.format(BestFeatureVec), 'wb'))
+
+
+                # build model
                 print('start building {} model!!!'.format(model))
-                posFeatures = self.emotion_features(self.best_word_features, self.pos_review, 'pos')
-                negFeatures = self.emotion_features(self.best_word_features, self.neg_review, 'neg')
-                self.train = posFeatures + negFeatures
-                self.classifier = SklearnClassifier(self.classifier_table[model]) #åœ¨nltk ä¸­ä½¿ç”¨scikit-learn çš„æ¥å£
-                self.classifier.train(self.train) #è®­ç»ƒåˆ†ç±»å™¨
-                pickle.dump(self.classifier, open('{}-{}.pickle'.format(model, self.BestFeatureVec),'wb'))
+
+                self.classifier = SklearnClassifier(self.classifier_table[model]) #ÔÚnltk ÖĞÊ¹ÓÃscikit-learn µÄ½Ó¿Ú
+                if len(self.train) == 0:
+                    print('build training data')
+                    posFeatures = self.emotion_features(self.best_Mainfeatures, self.pos_review, 'pos')
+                    negFeatures = self.emotion_features(self.best_Mainfeatures, self.neg_review, 'neg')
+                    self.train = posFeatures + negFeatures
+                self.classifier.train(self.train) #ÑµÁ··ÖÀàÆ÷
+                pickle.dump(self.classifier, open('{}.pickle.{}'.format(model, BestFeatureVec),'wb'))
 
     def buildTestData(self, pos_test, neg_test):
         pos_test = json.load(open(pos_test, 'r'))
         neg_test = json.load(open(neg_test, 'r'))
-        posFeatures = self.emotion_features(self.best_word_features, pos_test, 'pos')
-        negFeatures = self.emotion_features(self.best_word_features, neg_test, 'neg')
+        posFeatures = self.emotion_features(self.best_Mainfeatures, pos_test, 'pos')
+        negFeatures = self.emotion_features(self.best_Mainfeatures, neg_test, 'neg')
         return posFeatures + negFeatures
 
-    def best_word_features(self, word_list):
-        def find_best_words(number):
-            best_vals = sorted(self.mainFeatures.items(), key=lambda x: -x[1])[:number] #æŠŠè¯æŒ‰ä¿¡æ¯é‡å€’åºæ’åºã€‚numberæ˜¯ç‰¹å¾çš„ç»´åº¦ï¼Œæ˜¯å¯ä»¥ä¸æ–­è°ƒæ•´ç›´è‡³æœ€ä¼˜çš„
-            return set(w for w, s in best_vals) # set comprehension
-
-        best_words = find_best_words(self.BestFeatureVec) #ç‰¹å¾ç»´åº¦1500
-        return {word:True for word in word_list if word in best_words}
+    def best_Mainfeatures(self, word_list):
+        return {word:True for word in word_list if word in self.bestMainFeatures}
 
     @staticmethod
-    def create_word_features(bigram, pos_data, neg_data):
-        posWords = list(itertools.chain(*pos_data)) #æŠŠå¤šç»´æ•°ç»„è§£é“¾æˆä¸€ç»´æ•°ç»„
-        negWords = list(itertools.chain(*neg_data)) #åŒç†
+    def create_Mainfeatures(bigram, pos_data, neg_data):
+        posWords = list(itertools.chain(*pos_data)) #°Ñ¶àÎ¬Êı×é½âÁ´³ÉÒ»Î¬Êı×é
+        negWords = list(itertools.chain(*neg_data)) #Í¬Àí
 
         if bigram == True:
                 bigram_finder = BigramCollocationFinder.from_words(posWords)
                 posBigrams = bigram_finder.nbest(BigramAssocMeasures.chi_sq, 5000)
                 bigram_finder = BigramCollocationFinder.from_words(negWords)
                 negBigrams = bigram_finder.nbest(BigramAssocMeasures.chi_sq, 5000)
-                posWords += posBigrams #è¯å’ŒåŒè¯æ­é…
+                posWords += posBigrams #´ÊºÍË«´Ê´îÅä
                 negWords += negBigrams
 
-        word_fd = FreqDist() #å¯ç»Ÿè®¡æ‰€æœ‰è¯çš„è¯é¢‘
-        cond_word_fd = ConditionalFreqDist() #å¯ç»Ÿè®¡ç§¯ææ–‡æœ¬ä¸­çš„è¯é¢‘å’Œæ¶ˆææ–‡æœ¬ä¸­çš„è¯é¢‘
+        word_fd = FreqDist() #¿ÉÍ³¼ÆËùÓĞ´ÊµÄ´ÊÆµ
+        cond_word_fd = ConditionalFreqDist() #¿ÉÍ³¼Æ»ı¼«ÎÄ±¾ÖĞµÄ´ÊÆµºÍÏû¼«ÎÄ±¾ÖĞµÄ´ÊÆµ
         for word in posWords:
             word_fd[word] += 1
             cond_word_fd['pos'][word] += 1
@@ -100,21 +118,25 @@ class Swinger(object):
             word_fd[word] += 1
             cond_word_fd['neg'][word] += 1
 
-        pos_word_count = cond_word_fd['pos'].N() #ç§¯æè¯çš„æ•°é‡
-        neg_word_count = cond_word_fd['neg'].N() #æ¶ˆæè¯çš„æ•°é‡
+        pos_word_count = cond_word_fd['pos'].N() #»ı¼«´ÊµÄÊıÁ¿
+        neg_word_count = cond_word_fd['neg'].N() #Ïû¼«´ÊµÄÊıÁ¿
         total_word_count = pos_word_count + neg_word_count
 
-        word_features = {}
+        posFeatures = {}
+        negFeatures = {}
         for word, freq in word_fd.items():
-            pos_score = BigramAssocMeasures.chi_sq(cond_word_fd['pos'][word], (freq, pos_word_count), total_word_count) #è®¡ç®—ç§¯æè¯çš„å¡æ–¹ç»Ÿè®¡é‡ï¼Œè¿™é‡Œä¹Ÿå¯ä»¥è®¡ç®—äº’ä¿¡æ¯ç­‰å…¶å®ƒç»Ÿè®¡é‡
-            neg_score = BigramAssocMeasures.chi_sq(cond_word_fd['neg'][word], (freq, neg_word_count), total_word_count) #åŒç†
-            word_features[word] = pos_score + neg_score #ä¸€ä¸ªè¯çš„ä¿¡æ¯é‡ç­‰äºç§¯æå¡æ–¹ç»Ÿè®¡é‡åŠ ä¸Šæ¶ˆæå¡æ–¹ç»Ÿè®¡é‡
+            if cond_word_fd['pos'][word] > freq/2:
+                posFeatures[word] = BigramAssocMeasures.chi_sq(cond_word_fd['pos'][word], (freq, pos_word_count), total_word_count) #¼ÆËã»ı¼«´ÊµÄ¿¨·½Í³¼ÆÁ¿£¬ÕâÀïÒ²¿ÉÒÔ¼ÆËã»¥ĞÅÏ¢µÈÆäËüÍ³¼ÆÁ¿
+            elif cond_word_fd['neg'][word] > freq/2:
+                negFeatures[word] = BigramAssocMeasures.chi_sq(cond_word_fd['neg'][word], (freq, neg_word_count), total_word_count) #Í¬Àí
 
-        return word_features #åŒ…æ‹¬äº†æ¯ä¸ªè¯å’Œè¿™ä¸ªè¯çš„ä¿¡æ¯é‡
+        return posFeatures, negFeatures # °ÑÕıÃæºÍØ“ÃæÇé¾wµÄfeatures·Ö”µ·Öé_´æ·Å
 
     def score(self, pos_test, neg_test):
         # build test data set
-        self.test = self.buildTestData(pos_test, neg_test)
+        if len(self.test) == 0:
+            # self.test = self.buildTestData(self.pos_test, self.neg_test)
+            self.test = self.buildTestData(pos_test, neg_test)
 
         refsets = collections.defaultdict(set)
         testsets = collections.defaultdict(set)
@@ -123,32 +145,64 @@ class Swinger(object):
             observed = self.classifier.classify(feats)
             testsets[observed].add(i)
 
-        # pred = classifier.classify_many(self.test) #å¯¹å¼€å‘æµ‹è¯•é›†çš„æ•°æ®è¿›è¡Œåˆ†ç±»ï¼Œç»™å‡ºé¢„æµ‹çš„æ ‡ç­¾
-        # print(accuracy_score(self.tag_test, pred)) #å¯¹æ¯”åˆ†ç±»é¢„æµ‹ç»“æœå’Œäººå·¥æ ‡æ³¨çš„æ­£ç¡®ç»“æœï¼Œç»™å‡ºåˆ†ç±»å™¨å‡†ç¡®åº¦
-        print('pos precision:', precision(refsets['pos'], testsets['pos']))
+        # pred = classifier.classify_many(self.test) #¶Ô¿ª·¢²âÊÔ¼¯µÄÊı¾İ½øĞĞ·ÖÀà£¬¸ø³öÔ¤²âµÄ±êÇ©
+        # print(accuracy_score(self.tag_test, pred)) #¶Ô±È·ÖÀàÔ¤²â½á¹ûºÍÈË¹¤±ê×¢µÄÕıÈ·½á¹û£¬¸ø³ö·ÖÀàÆ÷×¼È·¶È
+        pprecision = precision(refsets['pos'], testsets['pos']) if precision(refsets['pos'], testsets['pos'])!=None else 0
+        print('pos precision:', pprecision)
         print('pos recall:', recall(refsets['pos'], testsets['pos']))
-        print('pos F-measure:', f_measure(refsets['pos'], testsets['pos']))
-        print('neg precision:',precision(refsets['neg'], testsets['neg']))
+        pfmeasure = f_measure(refsets['pos'], testsets['pos']) if f_measure(refsets['pos'], testsets['pos'])!=None else 0
+        print('pos F-measure:', pfmeasure)
+
+        nprecision = 0 if precision(refsets['neg'], testsets['neg'])==None else precision(refsets['neg'], testsets['neg'])
+        print('neg precision:', nprecision)
         print('neg recall:',recall(refsets['neg'], testsets['neg']))
-        print('neg F-measure:',f_measure(refsets['neg'], testsets['neg']))
+        nfmeasure = f_measure(refsets['neg'], testsets['neg']) if f_measure(refsets['neg'], testsets['neg'])!=None else 0
+        print('neg F-measure:', nfmeasure)
+        print('G-measure:', 2*(nfmeasure*pfmeasure/(nfmeasure+pfmeasure)))
+        return 2*(nfmeasure*pfmeasure/(nfmeasure+pfmeasure))
 
     def emotion_features(self, feature_extraction_method, data, emo):
-        return list(map(lambda x:[feature_extraction_method(x), emo], data)) #ä¸ºç§¯ææ–‡æœ¬èµ‹äºˆ"pos"
+        return list(map(lambda x:[feature_extraction_method(x), emo], data)) #Îª»ı¼«ÎÄ±¾¸³Óè"pos"
 
     def swing(self, word_list):
         word_list = filter(lambda x: x not in self.stopwords, jieba.cut(word_list))
-        sentence = self.best_word_features(word_list)
+        sentence = self.best_Mainfeatures(word_list)
         return self.classifier.classify(sentence)
 
 if __name__ == '__main__':
-    s = Swinger()
-    s.load('NuSVC')
-    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])
-    s.load('SVC')
-    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])
-    s.load('LinearSVC')
-    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])
-    s.load('MultinomialNB')
-    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])
-    s.load('BernoulliNB')
-    s.score(pos_test=sys.argv[1], neg_test=sys.argv[2])
+    # import matplotlib.pyplot as plt #¿ÉÊÓ»¯Ä£¿é
+    NuSVC_arr=[]
+    SVC_arr=[]
+    LinearSVC_arr=[]
+    MultinomialNB_arr=[]
+    BernoulliNB_arr=[]
+    for i in range(1,5000, 50):
+        s = Swinger()
+        s.load('NuSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        NuSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
+        s.load('SVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        SVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
+        s.load('LinearSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        LinearSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
+        s.load('MultinomialNB', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        MultinomialNB_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
+        s.load('BernoulliNB', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        BernoulliNB_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
+    print(NuSVC_arr)
+    print(SVC_arr)
+    print(LinearSVC_arr)
+    print(MultinomialNB_arr)
+    print(BernoulliNB_arr)
+
+    # plt.plot(range(1,5000, 50), NuSVC_arr, 'o-', color="b",label="NuSVC")
+    # plt.plot(range(1,5000, 50), SVC_arr, 'o-', color="g",label="SVC")
+    # plt.plot(range(1,5000, 50), LinearSVC_arr, 'o-', color="r",label="LinearSVC")
+    # plt.plot(range(1,5000, 50), MultinomialNB_arr, 'o-', color="c",label="MultinomialNB")
+    # plt.plot(range(1,5000, 50), BernoulliNB_arr, 'o-', color="m",label="BernoulliNB")
+    # plt.legend(loc='best')
+    # plt.savefig(sys.argv[5]+'.png')
