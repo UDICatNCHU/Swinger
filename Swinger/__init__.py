@@ -64,26 +64,26 @@ class Swinger(object):
                 self.neg_review = self.neg_origin[:int(neglen*0.9)]
                 self.neg_test = self.neg_origin[int(neglen*0.9):]
 
-                MainPosFeatures, MainNegFeatures = self.create_Mainfeatures(bigram=True, pos_data=self.pos_review, neg_data=self.neg_review) #Ê¹ÓÃ´ÊºÍË«´Ê´îÅä×÷ÎªÌØÕ÷
+                MainPosFeatures, MainNegFeatures = self.create_Mainfeatures(bigram=True, pos_data=self.pos_review, neg_data=self.neg_review) # ä½¿ç”¨è©å’Œé›™è©æ­é…ä½œç‚ºç‰¹å¾µ
                 def find_best_words(number):
                     MainPosFeatures.update(MainNegFeatures)
-                    best = sorted(MainPosFeatures.items(), key=lambda x: -x[1])[:number] #°Ñ´Ê°´ĞÅÏ¢Á¿µ¹ĞòÅÅĞò¡£numberÊÇÌØÕ÷µÄÎ¬¶È£¬ÊÇ¿ÉÒÔ²»¶Ïµ÷ÕûÖ±ÖÁ×îÓÅµÄ
+                    best = sorted(MainPosFeatures.items(), key=lambda x: -x[1])[:number] # æŠŠè©æŒ‰ä¿¡æ¯é‡å€’åºæ’åºã€‚number æ˜¯ç‰¹å¾µçš„å¾®åº¦ï¼Œå¼å¯ä»¥ä¸æ–·èª¿æ•´è‡³æœ€å„ªçš„
                     return set(w for w, s in best)
 
-                self.bestMainFeatures = find_best_words(BestFeatureVec) #ÌØÕ÷Î¬¶È1500
+                self.bestMainFeatures = find_best_words(BestFeatureVec) # ç‰¹å¾µç¶­åº¦1500
                 pickle.dump(self.bestMainFeatures, open('bestMainFeatures.pickle.{}'.format(BestFeatureVec), 'wb'))
 
 
                 # build model
                 print('start building {} model!!!'.format(model))
 
-                self.classifier = SklearnClassifier(self.classifier_table[model]) #ÔÚnltk ÖĞÊ¹ÓÃscikit-learn µÄ½Ó¿Ú
+                self.classifier = SklearnClassifier(self.classifier_table[model]) #nltkåœ¨sklearnçš„æ¥å£
                 if len(self.train) == 0:
                     print('build training data')
                     posFeatures = self.emotion_features(self.best_Mainfeatures, self.pos_review, 'pos')
                     negFeatures = self.emotion_features(self.best_Mainfeatures, self.neg_review, 'neg')
                     self.train = posFeatures + negFeatures
-                self.classifier.train(self.train) #ÑµÁ··ÖÀàÆ÷
+                self.classifier.train(self.train) #è¨“ç·´åˆ†é¡å™¨
                 pickle.dump(self.classifier, open('{}.pickle.{}'.format(model, BestFeatureVec),'wb'))
 
     def buildTestData(self, pos_test, neg_test):
@@ -98,19 +98,19 @@ class Swinger(object):
 
     @staticmethod
     def create_Mainfeatures(bigram, pos_data, neg_data):
-        posWords = list(itertools.chain(*pos_data)) #°Ñ¶àÎ¬Êı×é½âÁ´³ÉÒ»Î¬Êı×é
-        negWords = list(itertools.chain(*neg_data)) #Í¬Àí
+        posWords = list(itertools.chain(*pos_data)) #æŠŠå¤šç‚ºæ•¸çµ„è§£ç…‰æˆä¸€ç¶­æ•¸çµ„
+        negWords = list(itertools.chain(*neg_data)) #åŒç†
 
         if bigram == True:
                 bigram_finder = BigramCollocationFinder.from_words(posWords)
                 posBigrams = bigram_finder.nbest(BigramAssocMeasures.chi_sq, 5000)
                 bigram_finder = BigramCollocationFinder.from_words(negWords)
                 negBigrams = bigram_finder.nbest(BigramAssocMeasures.chi_sq, 5000)
-                posWords += posBigrams #´ÊºÍË«´Ê´îÅä
+                posWords += posBigrams #è©å’Œé›™è©æ­é…
                 negWords += negBigrams
 
-        word_fd = FreqDist() #¿ÉÍ³¼ÆËùÓĞ´ÊµÄ´ÊÆµ
-        cond_word_fd = ConditionalFreqDist() #¿ÉÍ³¼Æ»ı¼«ÎÄ±¾ÖĞµÄ´ÊÆµºÍÏû¼«ÎÄ±¾ÖĞµÄ´ÊÆµ
+        word_fd = FreqDist() #å¯çµ±è¨ˆæ‰€æœ‰è©çš„è©é »
+        cond_word_fd = ConditionalFreqDist() #å¯çµ±è¨ˆç©æ¥µæ–‡æœ¬ä¸­çš„è©é »å’Œæ¶ˆæ¥µæ–‡æœ¬ä¸­çš„è©é »
         for word in posWords:
             word_fd[word] += 1
             cond_word_fd['pos'][word] += 1
@@ -118,19 +118,19 @@ class Swinger(object):
             word_fd[word] += 1
             cond_word_fd['neg'][word] += 1
 
-        pos_word_count = cond_word_fd['pos'].N() #»ı¼«´ÊµÄÊıÁ¿
-        neg_word_count = cond_word_fd['neg'].N() #Ïû¼«´ÊµÄÊıÁ¿
+        pos_word_count = cond_word_fd['pos'].N() #ç©æ¥µè©çš„æ•¸é‡
+        neg_word_count = cond_word_fd['neg'].N() #æ¶ˆæ¥µè©çš„æ•¸é‡
         total_word_count = pos_word_count + neg_word_count
 
         posFeatures = {}
         negFeatures = {}
         for word, freq in word_fd.items():
             if cond_word_fd['pos'][word] > freq/2:
-                posFeatures[word] = BigramAssocMeasures.chi_sq(cond_word_fd['pos'][word], (freq, pos_word_count), total_word_count) #¼ÆËã»ı¼«´ÊµÄ¿¨·½Í³¼ÆÁ¿£¬ÕâÀïÒ²¿ÉÒÔ¼ÆËã»¥ĞÅÏ¢µÈÆäËüÍ³¼ÆÁ¿
+                posFeatures[word] = BigramAssocMeasures.chi_sq(cond_word_fd['pos'][word], (freq, pos_word_count), total_word_count) #è¨ˆç®—ç©æ¥µè©çš„å¡æ–¹çµ±è¨ˆé‡ï¼Œé€™è£ä¹Ÿå¯ä»¥è¨ˆç®—äº’ä¿¡æ¯ç­‰å…¶å®ƒçµ±è¨ˆé‡
             elif cond_word_fd['neg'][word] > freq/2:
-                negFeatures[word] = BigramAssocMeasures.chi_sq(cond_word_fd['neg'][word], (freq, neg_word_count), total_word_count) #Í¬Àí
+                negFeatures[word] = BigramAssocMeasures.chi_sq(cond_word_fd['neg'][word], (freq, neg_word_count), total_word_count) #åŒç†
 
-        return posFeatures, negFeatures # °ÑÕıÃæºÍØ“ÃæÇé¾wµÄfeatures·Ö”µ·Öé_´æ·Å
+        return posFeatures, negFeatures # æŠŠæ­£é¢å’Œè² é¢æƒ…ç·’çš„featuresåˆ†æ•¸åˆ†é–‹å­˜æ”¾
 
     def score(self, pos_test, neg_test):
         # build test data set
@@ -145,8 +145,8 @@ class Swinger(object):
             observed = self.classifier.classify(feats)
             testsets[observed].add(i)
 
-        # pred = classifier.classify_many(self.test) #¶Ô¿ª·¢²âÊÔ¼¯µÄÊı¾İ½øĞĞ·ÖÀà£¬¸ø³öÔ¤²âµÄ±êÇ©
-        # print(accuracy_score(self.tag_test, pred)) #¶Ô±È·ÖÀàÔ¤²â½á¹ûºÍÈË¹¤±ê×¢µÄÕıÈ·½á¹û£¬¸ø³ö·ÖÀàÆ÷×¼È·¶È
+        # pred = classifier.classify_many(self.test) #å°é–‹ç™¼æ¸¬è©¦é›†çš„æ•¸æ“šé€²è¡Œåˆ†é¡ï¼Œçµ¦å‡ºé æ¸¬çš„æ¨™ç±¤
+        # print(accuracy_score(self.tag_test, pred)) #å°æ¯”åˆ†é¡é æ¸¬çµæœå’Œäººå·¥æ¨™è¨»çš„æ­£ç¢ºçµæœï¼Œçµ¦å‡ºåˆ†é¡å™¨æº–ç¢ºåº¦
         pprecision = precision(refsets['pos'], testsets['pos']) if precision(refsets['pos'], testsets['pos'])!=None else 0
         print('pos precision:', pprecision)
         print('pos recall:', recall(refsets['pos'], testsets['pos']))
@@ -162,7 +162,7 @@ class Swinger(object):
         return 2*(nfmeasure*pfmeasure/(nfmeasure+pfmeasure))
 
     def emotion_features(self, feature_extraction_method, data, emo):
-        return list(map(lambda x:[feature_extraction_method(x), emo], data)) #Îª»ı¼«ÎÄ±¾¸³Óè"pos"
+        return list(map(lambda x:[feature_extraction_method(x), emo], data)) #çˆ²ç©æ¥µæ–‡æœ¬è³¦äºˆ"pos"
 
     def swing(self, word_list):
         word_list = filter(lambda x: x not in self.stopwords, jieba.cut(word_list))
@@ -170,7 +170,7 @@ class Swinger(object):
         return self.classifier.classify(sentence)
 
 if __name__ == '__main__':
-    # import matplotlib.pyplot as plt #¿ÉÊÓ»¯Ä£¿é
+    # import matplotlib.pyplot as plt #å¯è¦–åŒ–æ¨¡å¡Š
     NuSVC_arr=[]
     SVC_arr=[]
     LinearSVC_arr=[]
