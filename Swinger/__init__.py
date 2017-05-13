@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
-import nltk, json, pickle, sys, itertools,collections, jieba, os
+import nltk, json, pickle, sys, collections, jieba, os
 from random import shuffle
-from nltk.collocations import BigramCollocationFinder
-from nltk.metrics import BigramAssocMeasures
-from nltk.probability import FreqDist, ConditionalFreqDist
 from nltk.classify.scikitlearn import SklearnClassifier
 from sklearn.svm import SVC, LinearSVC, NuSVC
 from sklearn.naive_bayes import MultinomialNB, BernoulliNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from nltk.metrics.scores import (accuracy, precision, recall, f_measure, log_likelihood, approxrand)
+from utils import create_Mainfeatures
 
 
 class Swinger(object):
@@ -21,7 +19,8 @@ class Swinger(object):
         'LinearSVC':LinearSVC(),
         'NuSVC':NuSVC(probability=False),
         'MultinomialNB':MultinomialNB(),
-        'BernoulliNB':BernoulliNB()
+        'BernoulliNB':BernoulliNB(),
+        'LogisticRegression':LogisticRegression()
     }
     
     def __init__(self):
@@ -64,15 +63,7 @@ class Swinger(object):
                 self.neg_review = self.neg_origin[:int(neglen*0.9)]
                 self.neg_test = self.neg_origin[int(neglen*0.9):]
 
-                MainPosFeatures, MainNegFeatures = self.create_Mainfeatures(bigram=True, pos_data=self.pos_review, neg_data=self.neg_review) # 使用詞和雙詞搭配作為特徵
-                def find_best_words(number):
-                    MainPosFeatures.update(MainNegFeatures)
-                    best = sorted(MainPosFeatures.items(), key=lambda x: -x[1])[:number] # 把詞按信息量倒序排序。number 是特徵的微度，式可以不斷調整至最優的
-                    return set(w for w, s in best)
-
-                self.bestMainFeatures = find_best_words(BestFeatureVec) # 特徵維度1500
-                pickle.dump(self.bestMainFeatures, open('bestMainFeatures.pickle.{}'.format(BestFeatureVec), 'wb'))
-
+                self.bestMainFeatures = create_Mainfeatures(pos_data=self.pos_review, neg_data=self.neg_review, BestFeatureVec=BestFeatureVec) # 使用詞和雙詞搭配作為特徵
 
                 # build model
                 print('start building {} model!!!'.format(model))
@@ -96,70 +87,25 @@ class Swinger(object):
     def best_Mainfeatures(self, word_list):
         return {word:True for word in word_list if word in self.bestMainFeatures}
 
-    @staticmethod
-    def create_Mainfeatures(bigram, pos_data, neg_data):
-        posWords = list(itertools.chain(*pos_data)) #把多為數組解煉成一維數組
-        negWords = list(itertools.chain(*neg_data)) #同理
-
-        if bigram == True:
-                bigram_finder = BigramCollocationFinder.from_words(posWords)
-                posBigrams = bigram_finder.nbest(BigramAssocMeasures.chi_sq, 5000)
-                bigram_finder = BigramCollocationFinder.from_words(negWords)
-                negBigrams = bigram_finder.nbest(BigramAssocMeasures.chi_sq, 5000)
-                posWords += posBigrams #詞和雙詞搭配
-                negWords += negBigrams
-
-        word_fd = FreqDist() #可統計所有詞的詞頻
-        cond_word_fd = ConditionalFreqDist() #可統計積極文本中的詞頻和消極文本中的詞頻
-        for word in posWords:
-            word_fd[word] += 1
-            cond_word_fd['pos'][word] += 1
-        for word in negWords:
-            word_fd[word] += 1
-            cond_word_fd['neg'][word] += 1
-
-        pos_word_count = cond_word_fd['pos'].N() #積極詞的數量
-        neg_word_count = cond_word_fd['neg'].N() #消極詞的數量
-        total_word_count = pos_word_count + neg_word_count
-
-        posFeatures = {}
-        negFeatures = {}
-        for word, freq in word_fd.items():
-            if cond_word_fd['pos'][word] > freq/2:
-                posFeatures[word] = BigramAssocMeasures.chi_sq(cond_word_fd['pos'][word], (freq, pos_word_count), total_word_count) #計算積極詞的卡方統計量，這裏也可以計算互信息等其它統計量
-            elif cond_word_fd['neg'][word] > freq/2:
-                negFeatures[word] = BigramAssocMeasures.chi_sq(cond_word_fd['neg'][word], (freq, neg_word_count), total_word_count) #同理
-
-        return posFeatures, negFeatures # 把正面和負面情緒的features分數分開存放
-
     def score(self, pos_test, neg_test):
+        from sklearn.metrics import precision_recall_curve
+        from sklearn.metrics import roc_curve
+        from sklearn.metrics import auc
         # build test data set
         if len(self.test) == 0:
             # self.test = self.buildTestData(self.pos_test, self.neg_test)
             self.test = self.buildTestData(pos_test, neg_test)
 
-        refsets = collections.defaultdict(set)
-        testsets = collections.defaultdict(set)
-        for i, (feats, label) in enumerate(self.test):
-            refsets[label].add(i)
-            observed = self.classifier.classify(feats)
-            testsets[observed].add(i)
-
-        # pred = classifier.classify_many(self.test) #對開發測試集的數據進行分類，給出預測的標籤
-        # print(accuracy_score(self.tag_test, pred)) #對比分類預測結果和人工標註的正確結果，給出分類器準確度
-        pprecision = precision(refsets['pos'], testsets['pos']) if precision(refsets['pos'], testsets['pos'])!=None else 0
-        print('pos precision:', pprecision)
-        print('pos recall:', recall(refsets['pos'], testsets['pos']))
-        pfmeasure = f_measure(refsets['pos'], testsets['pos']) if f_measure(refsets['pos'], testsets['pos'])!=None else 0
-        print('pos F-measure:', pfmeasure)
-
-        nprecision = 0 if precision(refsets['neg'], testsets['neg'])==None else precision(refsets['neg'], testsets['neg'])
-        print('neg precision:', nprecision)
-        print('neg recall:',recall(refsets['neg'], testsets['neg']))
-        nfmeasure = f_measure(refsets['neg'], testsets['neg']) if f_measure(refsets['neg'], testsets['neg'])!=None else 0
-        print('neg F-measure:', nfmeasure)
-        print('G-measure:', 2*(nfmeasure*pfmeasure/(nfmeasure+pfmeasure)))
-        return 2*(nfmeasure*pfmeasure/(nfmeasure+pfmeasure))
+        test, test_tag = zip(*self.test)
+        pred = list(map(lambda x:1 if x=='pos' else 0, self.classifier.classify_many(test))) #對開發測試集的數據進行分類，給出預測的標籤
+        tag = list(map(lambda x:1 if x=='pos' else 0, test_tag))
+        precision, recall, _ = precision_recall_curve(tag, pred, pos_label=1)
+        pr_auc = auc(recall, precision)
+        print("Precision-Recall AUC: %.2f" % pr_auc)
+        # ROC AUC
+        fpr, tpr, _ = roc_curve(tag, pred, pos_label=1)
+        print("ROC AUC: %.2f" % auc(fpr, tpr))
+        return auc(fpr, tpr)
 
     def emotion_features(self, feature_extraction_method, data, emo):
         return list(map(lambda x:[feature_extraction_method(x), emo], data)) #爲積極文本賦予"pos"
@@ -167,6 +113,7 @@ class Swinger(object):
     def swing(self, word_list):
         word_list = filter(lambda x: x not in self.stopwords, jieba.cut(word_list))
         sentence = self.best_Mainfeatures(word_list)
+        print(sentence)
         return self.classifier.classify(sentence)
 
 if __name__ == '__main__':
@@ -176,7 +123,8 @@ if __name__ == '__main__':
     LinearSVC_arr=[]
     MultinomialNB_arr=[]
     BernoulliNB_arr=[]
-    for i in range(1,5000, 50):
+    LogisticRegression_arr=[]
+    for i in range(50,2000, 50):
         s = Swinger()
         s.load('NuSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
         NuSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
@@ -193,16 +141,36 @@ if __name__ == '__main__':
         s.load('BernoulliNB', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
         BernoulliNB_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
 
+        s.load('LogisticRegression', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        LogisticRegression_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
     print(NuSVC_arr)
     print(SVC_arr)
     print(LinearSVC_arr)
     print(MultinomialNB_arr)
     print(BernoulliNB_arr)
 
-    # plt.plot(range(1,5000, 50), NuSVC_arr, 'o-', color="b",label="NuSVC")
-    # plt.plot(range(1,5000, 50), SVC_arr, 'o-', color="g",label="SVC")
-    # plt.plot(range(1,5000, 50), LinearSVC_arr, 'o-', color="r",label="LinearSVC")
-    # plt.plot(range(1,5000, 50), MultinomialNB_arr, 'o-', color="c",label="MultinomialNB")
-    # plt.plot(range(1,5000, 50), BernoulliNB_arr, 'o-', color="m",label="BernoulliNB")
+    # plt.plot(range(50,2000, 50), NuSVC_arr, 'o-', color="b",label="NuSVC")
+    # plt.plot(range(50,2000, 50), SVC_arr, 'o-', color="g",label="SVC")
+    # plt.plot(range(50,2000, 50), LinearSVC_arr, 'o-', color="r",label="LinearSVC")
+    # plt.plot(range(50,2000, 50), MultinomialNB_arr, 'o-', color="c",label="MultinomialNB")
+    # plt.plot(range(50,2000, 50), BernoulliNB_arr, 'o-', color="m",label="BernoulliNB")
     # plt.legend(loc='best')
     # plt.savefig(sys.argv[5]+'.png')
+    # plt.show()
+
+    # s = Swinger()
+    # s.load('NuSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=sys.argv[5])
+    # NuSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
+    # s.load('SVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=sys.argv[5])
+    # SVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
+    # s.load('LinearSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=sys.argv[5])
+    # LinearSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
+    # s.load('MultinomialNB', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=sys.argv[5])
+    # MultinomialNB_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+
+    # s.load('BernoulliNB', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=sys.argv[5])
+    # BernoulliNB_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4])) 
