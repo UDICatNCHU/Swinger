@@ -38,7 +38,17 @@ def create_Mainfeatures(pos_data, neg_data, BestFeatureVec):
         best = sorted(word_features.items(), key=lambda x: -x[1])[:number] # 把詞按信息量倒序排序。number 是特徵的微度，式可以不斷調整至最優的
         return set(w for w, s in best)
 
+    def word2vec_expand(featureset):
+        from gensim import models
+        model = models.KeyedVectors.load_word2vec_format('med400.model.bin', binary=True)
+        expand = set()
+        for i in featureset:
+            for j in model.most_similar(i, topn = 10):
+                expand.add(j[0])
+        return expand
+
     best = find_best_words(BestFeatureVec)
+    best = best.union(word2vec_expand(best))
     pickle.dump(best, open('bestMainFeatures.pickle.{}'.format(BestFeatureVec), 'wb'))
     return best
 
