@@ -99,9 +99,6 @@ class Swinger(object):
         test, test_tag = zip(*self.test)
         pred = list(map(lambda x:1 if x=='pos' else 0, self.classifier.classify_many(test))) #對開發測試集的數據進行分類，給出預測的標籤
         tag = list(map(lambda x:1 if x=='pos' else 0, test_tag))
-        precision, recall, _ = precision_recall_curve(tag, pred, pos_label=1)
-        pr_auc = auc(recall, precision)
-        print("Precision-Recall AUC: %.2f" % pr_auc)
         # ROC AUC
         fpr, tpr, _ = roc_curve(tag, pred, pos_label=1)
         print("ROC AUC: %.2f" % auc(fpr, tpr))
@@ -124,7 +121,7 @@ if __name__ == '__main__':
     MultinomialNB_arr=[]
     BernoulliNB_arr=[]
     LogisticRegression_arr=[]
-    for i in range(50,2000, 50):
+    for i in range(50, 4800, 50):
         s = Swinger()
         s.load('NuSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
         NuSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
@@ -149,7 +146,7 @@ if __name__ == '__main__':
     print(LinearSVC_arr)
     print(MultinomialNB_arr)
     print(BernoulliNB_arr)
-
+    print(LogisticRegression_arr)
     # plt.plot(range(50,2000, 50), NuSVC_arr, 'o-', color="b",label="NuSVC")
     # plt.plot(range(50,2000, 50), SVC_arr, 'o-', color="g",label="SVC")
     # plt.plot(range(50,2000, 50), LinearSVC_arr, 'o-', color="r",label="LinearSVC")

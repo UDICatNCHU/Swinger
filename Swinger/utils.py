@@ -44,7 +44,10 @@ def create_Mainfeatures(pos_data, neg_data, BestFeatureVec):
         expand = set()
         for i in featureset:
             for j in model.most_similar(i, topn = 10):
-                expand.add(j[0])
+                try:
+                    expand.add(j[0])
+                except Exception as e:
+                    pass
         return expand
 
     best = find_best_words(BestFeatureVec)
