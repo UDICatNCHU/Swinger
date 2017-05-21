@@ -7,7 +7,7 @@ from sklearn.naive_bayes import MultinomialNB, BernoulliNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from nltk.metrics.scores import (accuracy, precision, recall, f_measure, log_likelihood, approxrand)
-from utils import create_Mainfeatures
+from utils import create_Mainfeatures, CutAndrmStopWords
 
 
 class Swinger(object):
@@ -107,10 +107,9 @@ class Swinger(object):
     def emotion_features(self, feature_extraction_method, data, emo):
         return list(map(lambda x:[feature_extraction_method(x), emo], data)) #爲積極文本賦予"pos"
 
-    def swing(self, word_list):
-        word_list = filter(lambda x: x not in self.stopwords, jieba.cut(word_list))
-        sentence = self.best_Mainfeatures(word_list)
-        print(sentence)
+    def swing(self, sentence):
+        sentence = self.best_Mainfeatures(CutAndrmStopWords(sentence))
+        # print(sentence)
         return self.classifier.classify(sentence)
 
 if __name__ == '__main__':
@@ -121,22 +120,22 @@ if __name__ == '__main__':
     MultinomialNB_arr=[]
     BernoulliNB_arr=[]
     LogisticRegression_arr=[]
-    for i in range(50, 4800, 50):
+    for i in range(100, 700, 50):
         s = Swinger()
-        s.load('NuSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
-        NuSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+        # s.load('NuSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        # NuSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
 
-        s.load('SVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
-        SVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+        # s.load('SVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        # SVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
 
-        s.load('LinearSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
-        LinearSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+        # s.load('LinearSVC', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        # LinearSVC_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
 
-        s.load('MultinomialNB', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
-        MultinomialNB_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+        # s.load('MultinomialNB', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        # MultinomialNB_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
 
-        s.load('BernoulliNB', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
-        BernoulliNB_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
+        # s.load('BernoulliNB', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
+        # BernoulliNB_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
 
         s.load('LogisticRegression', useDefault=False, pos=sys.argv[1], neg=sys.argv[2], BestFeatureVec=i)
         LogisticRegression_arr.append(s.score(pos_test=sys.argv[3], neg_test=sys.argv[4]))
@@ -152,7 +151,10 @@ if __name__ == '__main__':
     # plt.plot(range(50,2000, 50), LinearSVC_arr, 'o-', color="r",label="LinearSVC")
     # plt.plot(range(50,2000, 50), MultinomialNB_arr, 'o-', color="c",label="MultinomialNB")
     # plt.plot(range(50,2000, 50), BernoulliNB_arr, 'o-', color="m",label="BernoulliNB")
+    # plt.plot(range(50,2000, 50), LogisticRegression_arr, 'o-', color="y",label="LogisticRegression")
     # plt.legend(loc='best')
+    # plt.xlabel("features vectors")
+    # plt.ylabel("AUC")
     # plt.savefig(sys.argv[5]+'.png')
     # plt.show()
 

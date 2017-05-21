@@ -43,17 +43,36 @@ def create_Mainfeatures(pos_data, neg_data, BestFeatureVec):
         model = models.KeyedVectors.load_word2vec_format('med400.model.bin', binary=True)
         expand = set()
         for i in featureset:
-            for j in model.most_similar(i, topn = 10):
-                try:
+            try:
+                for j in model.most_similar(i, topn = 10):
                     expand.add(j[0])
-                except Exception as e:
-                    pass
+            except Exception as e:
+                pass
         return expand
 
     best = find_best_words(BestFeatureVec)
     best = best.union(word2vec_expand(best))
     pickle.dump(best, open('bestMainFeatures.pickle.{}'.format(BestFeatureVec), 'wb'))
     return best
+
+import jieba.posseg as pseg
+import jieba, os
+
+stopwords = json.load(open('stopwords.json', 'r'))
+jieba.load_userdict(os.path.join('dictionary', 'dict.txt.big.txt'))
+jieba.load_userdict(os.path.join("dictionary", "NameDict_Ch_v2"))
+def CutAndrmStopWords(sentence):
+    def condition(x):
+        x = list(x)
+        word, flag = x[0], x[1]
+        if len(word) > 1 and flag!='eng' and flag != 'm' and flag !='mq' and word not in stopwords:
+            return True
+        return False
+
+    result = filter(condition, pseg.cut(sentence))
+    result = map(lambda x:list(x)[0], result)
+    return list(result)
+
 
 if __name__ == '__main__':
     create_Mainfeatures(sys.argv[1], sys.argv[2], int(sys.argv[3]))
