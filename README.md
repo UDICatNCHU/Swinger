@@ -3,7 +3,7 @@
 一個自製的判斷中文情緒的函式庫，因為算出來的機率會在0~1之間搖擺，故命名搖擺者  
 可透過`pip`安裝 內含已經訓練好的模型
 
-![swinger](img/swing.svg)
+![swinger](img/seesaw.png)
 
 ## Getting Started
 
