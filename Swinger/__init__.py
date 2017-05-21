@@ -28,7 +28,7 @@ class Swinger(object):
         self.test = []
         self.classifier = ''
 
-    def load(self, model, useDefault=True, pos=None, neg=None, BestFeatureVec=2000):
+    def load(self, model, useDefault=True, pos=None, neg=None, BestFeatureVec=700):
         BestFeatureVec = int(BestFeatureVec)
 
         if useDefault:
