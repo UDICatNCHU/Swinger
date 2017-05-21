@@ -7,13 +7,12 @@ from sklearn.naive_bayes import MultinomialNB, BernoulliNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from nltk.metrics.scores import (accuracy, precision, recall, f_measure, log_likelihood, approxrand)
-from utils import create_Mainfeatures, CutAndrmStopWords
+from Swinger.utils import create_Mainfeatures, CutAndrmStopWords
 
 
 class Swinger(object):
     """docstring for Swinger"""
     BASEDIR = os.path.dirname(__file__)
-    stopwords = json.load(open(os.path.join(BASEDIR, 'stopwords.json'), 'r'))
     classifier_table = {
         'SVC':SVC(probability=False),
         'LinearSVC':LinearSVC(),

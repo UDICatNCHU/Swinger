@@ -58,9 +58,10 @@ def create_Mainfeatures(pos_data, neg_data, BestFeatureVec):
 import jieba.posseg as pseg
 import jieba, os
 
-stopwords = json.load(open('stopwords.json', 'r'))
-jieba.load_userdict(os.path.join('dictionary', 'dict.txt.big.txt'))
-jieba.load_userdict(os.path.join("dictionary", "NameDict_Ch_v2"))
+BASEDIR = os.path.dirname(__file__)
+stopwords = json.load(open(os.path.join(BASEDIR, 'stopwords', 'stopwords.json'), 'r'))
+jieba.load_userdict(os.path.join(BASEDIR, 'dictionary', 'dict.txt.big.txt'))
+jieba.load_userdict(os.path.join(BASEDIR, "dictionary", "NameDict_Ch_v2"))
 def CutAndrmStopWords(sentence):
     def condition(x):
         x = list(x)
