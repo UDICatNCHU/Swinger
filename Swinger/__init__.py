@@ -108,7 +108,10 @@ class Swinger(object):
 
     def swing(self, sentence):
         sentence = self.best_Mainfeatures(CutAndrmStopWords(sentence))
-        # print(sentence)
+        return self.classifier.classify(sentence)
+
+    def swingList(self, sentenceList):
+        sentence = self.best_Mainfeatures(sentenceList)
         return self.classifier.classify(sentence)
 
 if __name__ == '__main__':
