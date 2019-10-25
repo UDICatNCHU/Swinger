@@ -59,7 +59,7 @@ import jieba.posseg as pseg
 import jieba, os
 
 BASEDIR = os.path.dirname(__file__)
-stopwords = json.load(open(os.path.join(BASEDIR, 'stopwords', 'stopwords.json'), 'r'))
+stopwords = json.load(open(os.path.join(BASEDIR, 'stopwords', 'stopwords.json'), 'r', encoding='utf-8'))
 jieba.load_userdict(os.path.join(BASEDIR, 'dictionary', 'dict.txt.big.txt'))
 jieba.load_userdict(os.path.join(BASEDIR, "dictionary", "NameDict_Ch_v2"))
 def CutAndrmStopWords(sentence):
